@@ -1,0 +1,3 @@
+/Users/nikkeo/CLionProjects/Lab2Proga/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/Users/nikkeo/CLionProjects/Lab2Proga/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/nikkeo/CLionProjects/Lab2Proga/cmake-build-debug/CMakeFiles/2700.dir
