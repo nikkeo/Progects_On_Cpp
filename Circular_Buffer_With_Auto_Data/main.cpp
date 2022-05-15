@@ -1,8 +1,7 @@
 #include <iostream>
 #include <string>
 #include <algorithm> 
-
-
+#include <vector>
 using namespace std;
 
 
@@ -316,8 +315,28 @@ const G* find_backward(CircularBuffer <G> &newone, G given){
 }
 
 
+struct even{
+    bool operator()(int val){
+        return val % 2 == 0;
+    }
+};
 
-int main(int argc, char **argv)
+// ПЕРЕДЕЛАТЬ АЛГОРИТМЫ ПОД ЭТОТ ШАБЛОН!
+// template <typename T>
+// void print_me(const T& val){
+//     cout << val << " ";
+// }
+
+// template <typename Iterator, typename Predicate>
+// void foreach(Iterator first, Iterator last, Predicate pred){
+//     for (; first != last; ++first){
+//         pred(*first);
+//     }
+// }
+int gen(){
+    return 5;
+}
+int main()
 {
 
     CircularBuffer <int> c(10);
@@ -328,13 +347,20 @@ int main(int argc, char **argv)
         c.AddBegin(i);
     }   
 
-    cout << *find_backward(c, 12);
+    // cout << *find_backward(c, 12);
+
+    // cout << endl << count_if(c.begin(), c.end(), even());
 
     // sort(c.begin(), c.end());
 
     // for (int i = 0; i < c.size(); ++i){
     //     cout << c.GetIndex(i) << " ";
     // }
+
+    // foreach(c.begin(), c.end(), print_me<int>);
+    vector <int> ve;
+    
+    generate(c.begin(), c.end(), gen);
     return 0;
 }
  
