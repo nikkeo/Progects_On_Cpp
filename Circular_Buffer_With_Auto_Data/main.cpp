@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
-#include <algorithm> 
 #include <vector>
+#include <iterator>
+
 using namespace std;
 
 
@@ -32,17 +33,22 @@ public:
     ~dot(){}
 };
 
+template <typename Q>
+class MyIterator;
 
 
 template<class T>
 class CircularBuffer {
 private:
-
     T* data_;
     int  size_;
     int freeSpace_;
     int usedSpace_;
+    int startIndex_;
+    int midpoint_;
+    int endIndex_;
 public:
+
     CircularBuffer(int val)
     {
         size_ = val;
@@ -50,78 +56,116 @@ public:
 
         freeSpace_ = size_;
         usedSpace_ = 0;
+        midpoint_ = (size_ / 2);
+        startIndex_ = midpoint_ - 1;
+        endIndex_ = midpoint_;
     }
  
-    const int GetFreeSpace(){
+    const T GetFreeSpace(){
         return size_ - usedSpace_; 
     }
  
-    int GetUsedSpace(){
+    const T GetUsedSpace(){
         return usedSpace_; 
     }
     
     void AddBegin(T val){
-        for (int i = usedSpace_; i >= 0; --i){
-            data_[i + 1] = data_[i];
+        if (usedSpace_ == size_){
+            cout << "ERROR: NOT ENOUGHT SPACE" << endl;
+            return;
         }
-        data_[0] = val;
         usedSpace_++;
+
+        if (startIndex_ > 0){
+            data_[startIndex_] = val;
+            --startIndex_;
+        }
+        else{
+            data_[startIndex_] = val;
+            startIndex_ = size_ - 1;
+        }
+
+        if (startIndex_ == endIndex_){
+            endIndex_--;
+        }
     }
 
     void AddEnd(T val){
-        data_[usedSpace_++ % size_] = val; 
+        if (usedSpace_ == size_){
+            cout << "ERROR: NOT ENOUGHT SPACE" << endl;
+            return;
+        }
+        usedSpace_++;
+
+        if (endIndex_ < (size_ - 1)){
+            data_[endIndex_] = val;
+            ++endIndex_;
+        }
+        else{
+            data_[endIndex_] = val;
+            endIndex_ = 0;
+        }
     } 
-    
-    const T* begin(){
-        return &data_[0];
+
+
+    void DelBegin(){
+        if (usedSpace_ == 0){
+            cout << "Buffer is empty";
+        }
+        else{
+            --usedSpace_;
+            
+            //когда старт еще не добавлен => мы убираем из начала конца
+            if (startIndex_ == size_ - 1){
+                startIndex_ = 0;
+            }
+            else{
+                startIndex_++;
+            }
+        }
     }
 
-    const T* end(){
-        return &data_[usedSpace_];
+    void DelEnd(){
+        if (usedSpace_ == 0){
+            cout << "Buffer is empty";
+        }
+        else{
+
+            --usedSpace_;
+            
+            //когда конца еще нет, выбираем из конца старта
+            if (endIndex_ == 0){
+                endIndex_ = size_ - 1;
+            }
+            else{
+                endIndex_--;
+            }
+        }
     }
 
-    const T* index(int index){
+    T* GetIndex(int index){
         return &data_[index];
     }
 
-    T GetBegin(){
-        if (usedSpace_ == 0){
-            cout << "Buffer is empty";
-        }
-        else{
-            --usedSpace_;
-            return data_[-1]; 
-        }
-        return 0;
-    }
-
-    T GetEnd(){
-        if (usedSpace_ == 0){
-            cout << "Buffer is empty";
-        }
-        else{
-            T res = data_[0]; 
-
-            for (int i = 1; i < usedSpace_; ++i)
-                data_[i - 1] = data_[i];
-
-            --usedSpace_;
-            return res; 
-        }
-        return 0;
-    }
-
-    const T GetIndex(int index){
-        return data_[index];
-    }
-
-    const int sizeIS(){
+    const int size(){
         return size_;
     }
 
-    const int size(){
-        return usedSpace_;
+    const MyIterator <T> begin(){
+        MyIterator <T> I(&data_[startIndex_], this);
+        return I;
     }
+
+    const MyIterator <T> end(){
+        MyIterator <T> I(&data_[endIndex_], this);
+        return I;
+    }
+
+    const MyIterator <T> index(int index){
+        MyIterator <T> I(&data_[index], this);
+        return I;
+    }
+    
 
     void resize(int NewSize){
         T *newOne = new T[NewSize];
@@ -132,14 +176,120 @@ public:
         data_ = newOne;
     }
 
-     
+    
     ~CircularBuffer(){ 
         delete[] data_; 
     }
 };
+
+
+template <typename Q>
+class MyIterator: public iterator<
+                        input_iterator_tag,   // iterator_category
+                        long,                      // value_type
+                        long,                      // difference_type
+                        const long*,               // pointer
+                        long                       // reference
+                                      >
+{
+private:
+    Q* current;
+    CircularBuffer <Q>* buffer; 
+public:
+
+    MyIterator() : current(0){}
+
+    MyIterator(Q* curr, CircularBuffer<Q>* buff) : current(curr), buffer(buff){}
+
+    MyIterator(const MyIterator& other) : current(other.current){}
+
+    ~MyIterator(){}
+
+    MyIterator& operator=(const MyIterator& other){
+        if (this != &other){
+            current = other.current;
+            buffer = other.buffer;
+        }
+        return *this;
+    }
+
+    MyIterator& operator++(){
+        ++current;
+        
+        if (current == buffer->GetIndex(buffer->size())){
+            current = buffer->GetIndex(0);
+        }
+
+        return *this;
+    } 
+
+    MyIterator& operator--(){
+        --current;
+
+        if (*current < 0){
+            current = &buffer->GetIndex(buffer->size() - 1);
+        }
+
+        return *this;
+    }
+
+    MyIterator  operator++(int){
+        MyIterator newone(*this);
+        operator++();
+
+        if (*current == buffer->GetIndex(-1)){
+            current = &buffer->GetIndex(0);
+            *current = 0;
+        }
+
+        return newone;
+    }
+
+    MyIterator  operator--(int){
+        MyIterator newone(*this);
+        operator--();
+
+        if (*current < 0){
+            current = &buffer->GetIndex(buffer->size() - 1);
+        }
+
+        return newone;
+    }
+
+    Q& operator*(){
+        return *current;
+    }
+
+    Q* operator->(){
+        return current;
+    }
+
+    bool operator==(const MyIterator& other){
+        return current == other.current;
+    }
+
+    bool operator!=(const MyIterator& other){
+        return !(*this == other);
+    }
+
+    bool operator<(const MyIterator& other){
+        return (current < other.current);
+    }
+
+    bool operator<=(const MyIterator& other){
+        return (current < other.current);
+    }
+
+    bool operator>(const MyIterator& other){
+        return (current < other.current);
+    }
+
+    bool operator>=(const MyIterator& other){
+        return (current < other.current);
+    }
+};
+
  
-
-
 template <class G>
 bool moreThanZero(G x){
 
@@ -151,217 +301,153 @@ bool moreThanZero(G x){
 }
 
 
-template <class G>
-const bool all_of(CircularBuffer <G> &newone){
-
-    bool b = 1;
-
-    for (int i = 0; i < newone.size(); ++i){
-        if (!moreThanZero(newone.GetIndex(i))){
-            b = 0;
-            break;
+template<class Iter, class Predicate>
+bool All_of(Iter first, Iter last, Predicate pred)
+{
+    for (; first != last; ++first) {
+        if (!pred(*first)) {
+            return 0;
         }
     }
+    return 1;
+}
 
-    if (b){
-        return 1;
-    }
-    else{
-        return 0;
-    }
+template<class Iter, class Predicate>
+bool None_of(Iter first, Iter last, Predicate pred)
+{
+    return !All_of(first, last, pred);
 }
 
 
-template <class G>
-const bool any_of(CircularBuffer <G> &newone){
-
-    bool b = 0;
-
-    for (int i = 0; i < newone.size(); ++i){
-        if (moreThanZero(newone.GetIndex(i))){
-            b = 1;
-            break;
-        }
-    }
-
-    if (b){
-        return 1;
-    }
-    else{
-        return 0;
-    }
-}
-
-
-template <class G>
-const bool none_of(CircularBuffer <G> &newone){
-
-    bool b = 1;
-
-    for (int i = 0; i < newone.size(); ++i){
-        if (moreThanZero(newone.GetIndex(i))){
-            b = 0;
-            break;
-        }
-    }
-
-    if (b){
-        return 1;
-    }
-    else{
-        return 0;
-    }
-}
-
-
-template <class G>
-const bool one_of(CircularBuffer <G> &newone){
-
+template<class Iter, class Predicate>
+bool One_of(Iter first, Iter last, Predicate pred)
+{
     int b = 0;
-
-    for (int i = 0; i < newone.size(); ++i){
-        if (moreThanZero(newone.GetIndex(i))){
-            b++;
-            if (b > 1){
-                break;
-            }
+    for (; first != last; ++first) {
+        if (pred(*first)) {
+            b += 1;
+        }
+        if (b > 1){
+            return 0;
         }
     }
-
-    if (b == 1){
+    if (b){
         return 1;
     }
-    else{
-        return 0;
-    }
+    return 0;
 }
 
 
-template <class G>
-const bool isSorted(CircularBuffer <G> &newone, bool reversed){
-    bool b = 1;
+template<class Iter>
+bool IsSorted(Iter first, Iter last, bool reversed){
 
     if (reversed){
-        for (int i = 1; i < newone.size(); ++i){
-            if (newone.GetIndex(i - 1) < newone.GetIndex(i)){
-                b = 0;
-                break;
+        for (; first != last; ++first) {
+            Iter next = first;
+            ++next;
+            if (next > first) {
+                return 0;
             }
         }
-    }
-    else{
-        for (int i = 1; i < newone.size(); ++i){
-            if (newone.GetIndex(i - 1) > newone.GetIndex(i)){
-                b = 0;
-                break;
-            }
-        }
-    }
-
-    if (b){
         return 1;
     }
-    else{
-        return 0;
+
+    for (; first != last; ++first) {
+        Iter next = first;
+        ++next;
+        if (next < first) {
+            return 0;
+        }
     }
+    return 1;
+    
 }
 
 
-template <class G>
-const bool is_partitioned(CircularBuffer <G> &newone){
-    int b = 0;
-    bool previous = moreThanZero(newone.GetIndex(0));
-
-    for (int i = 1; i < newone.size(); ++i){
-        if (moreThanZero(newone.GetIndex(i)) != previous){
-            b++;
-            if (b > 1){
-                break;
-            }
+template<class Iter, class Predicate>
+bool Is_partitioned(Iter first, Iter last, Predicate pred)
+{
+    for (; first != last; ++first){
+        if (!pred(*first)){
+            break;
         }
-        previous = moreThanZero(newone.GetIndex(i));
     }
 
-    if (b == 1){
-        return 1;
+    for (; first != last; ++first){
+        if (pred(*first)){
+            return 0;
+        }
     }
-    else{
-        return 0;
-    }
+
+    return 1;
 }
 
-template <class G>
-const G* find_not(CircularBuffer <G> &newone, G given){
-    for (int i = 0; i < newone.size(); ++i){
-        if (newone.GetIndex(i) != given){
-            return newone.index(i);
+template<class Iter, class G>
+G Find_not(Iter first, Iter last, G elem){
+
+    for (; first != last; ++first) {
+        if (*first != elem) {
+            return *first;
         }
     }
 
-    cout << "NOT FOUND, ALL IS LIKE GIVEN";
     return 0;
 }
 
-template <class G>
-const G* find_backward(CircularBuffer <G> &newone, G given){
-    for (int i = newone.size() - 1; i >= 0; --i){
-        if (newone.GetIndex(i) == given){
-            return newone.index(i);
+template<class Iter, class G>
+G Find_backward(Iter first, Iter last, G elem){
+
+    for (; last != first; --first) {
+        if (*first != elem) {
+            return *first;
         }
     }
 
-    cout << "NOT EXISTS" << endl;
     return 0;
 }
 
+template<class Iter, class Predicate>
+bool Is_palindrome(Iter first, Iter last, Predicate pred){
+    Iter backward = last;
 
-struct even{
-    bool operator()(int val){
-        return val % 2 == 0;
+    for (; first != last; ++first){
+        if (!pred(first, --backward)){
+            return 0;
+        }
     }
-};
 
-// ПЕРЕДЕЛАТЬ АЛГОРИТМЫ ПОД ЭТОТ ШАБЛОН!
-// template <typename T>
-// void print_me(const T& val){
-//     cout << val << " ";
-// }
-
-// template <typename Iterator, typename Predicate>
-// void foreach(Iterator first, Iterator last, Predicate pred){
-//     for (; first != last; ++first){
-//         pred(*first);
-//     }
-// }
-int gen(){
-    return 5;
+    return 1;
 }
+
+
 int main()
 {
 
     CircularBuffer <int> c(10);
+    vector <int> ve;
+    ve.push_back(-1);
+    ve.push_back(-1);
 
-    c.resize(13);
-
-    for (int i = 0; i < 13; ++i){
+    for (int i = 9; i >= 0; --i){
         c.AddBegin(i);
-    }   
+    } 
 
-    // cout << *find_backward(c, 12);
+    int a = 1;
+    MyIterator<int> I(&a, &c); 
 
-    // cout << endl << count_if(c.begin(), c.end(), even());
+
+    // for (I = c.begin(); I != c.end(); ++I){
+    //     cout << *I << " ";
+    // }
+
+    cout << IsSorted(c.begin(), c.end(), 0);
 
     // sort(c.begin(), c.end());
+
 
     // for (int i = 0; i < c.size(); ++i){
     //     cout << c.GetIndex(i) << " ";
     // }
 
-    // foreach(c.begin(), c.end(), print_me<int>);
-    vector <int> ve;
-    
-    generate(c.begin(), c.end(), gen);
-    return 0;
-}
- 
 
+}
